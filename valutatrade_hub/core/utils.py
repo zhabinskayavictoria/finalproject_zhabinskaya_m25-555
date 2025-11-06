@@ -1,6 +1,7 @@
 import json
 import os
-
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+from valutatrade_hub.core.currencies import get_currency
 
 def load_json(file_path: str):
     """Загружает данные из JSON файла"""
@@ -22,6 +23,11 @@ def validate_currency_code(currency_code: str) -> str:
     """Валидирует и нормализует код валюты"""
     if not isinstance(currency_code, str) or not currency_code.strip():
         raise ValueError("Код валюты должен быть непустой строкой\n")
+    code = currency_code.upper().strip()
+    try:
+        get_currency(code)
+    except CurrencyNotFoundError:
+        raise ValueError(f"Неизвестная валюта '{code}'\n")
     return currency_code.upper()
 
 def validate_amount(amount) -> float:
@@ -30,10 +36,8 @@ def validate_amount(amount) -> float:
         amount_float = float(amount)
     except (ValueError, TypeError):
         raise TypeError("Сумма должна быть числом\n")
-    
     if amount_float <= 0:
         raise ValueError("Сумма должна быть положительной\n")
-    
     return amount_float
 
 def get_exchange_rates():

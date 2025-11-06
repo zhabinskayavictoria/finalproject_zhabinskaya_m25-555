@@ -1,6 +1,6 @@
 import datetime
 import hashlib
-
+from valutatrade_hub.core.exceptions import InsufficientFundsError
 
 class User:
     """Класс пользователя системы."""
@@ -108,7 +108,11 @@ class Wallet:
         if amount <= 0:
             raise ValueError("amount должен быть > 0\n")
         if amount > self._balance:
-            raise ValueError("Недостаточно средств для снятия\n")
+            raise InsufficientFundsError(
+                available=self._balance, 
+                required=amount, 
+                code=self.currency_code
+            )
         self._balance -= float(amount)
 
     def get_balance_info(self):
