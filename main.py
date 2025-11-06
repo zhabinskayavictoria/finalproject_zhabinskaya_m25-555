@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
-def main():
-    """Главная функция"""
-    print('Запуск финального проекта')
+from valutatrade_hub.cli.interface import CLIInterface
 
-if __name__ == '__main__':
+
+def main():
+    """Главная функция приложения"""
+    cli = CLIInterface()
+    cli.run()
+
+if __name__ == "__main__":
     main()
