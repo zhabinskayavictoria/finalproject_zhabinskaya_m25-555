@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.decorators import log_buy, log_login, log_register, log_sell
 
 from .models import Portfolio, User, Wallet
 from .utils import (
@@ -22,6 +23,7 @@ class UserManager:
         self.database = DatabaseManager()
         self.current_user: Optional[User] = None
 
+    @log_register(verbose=True)
     def register(self, username: str, password: str):
         """Регистрирует нового пользователя"""
         if not username or not username.strip():
@@ -55,7 +57,8 @@ class UserManager:
         
         return (f"Пользователь '{username}' зарегистрирован (id={user_id})."
                f" Войдите: login --username {username} --password ***\n")
-
+    
+    @log_login(verbose=True)
     def login(self, username: str, password: str):
         """Вход пользователя в систему"""
         users = self.database.load_users()
@@ -201,7 +204,8 @@ class PortfolioManager:
         output.append("-" * 40)
         output.append(f"ИТОГО: {total_value:,.2f} {base_currency}\n")
         return "\n".join(output)
-
+    
+    @log_buy(verbose=True)
     def buy_currency(self, currency_code: str, amount: float):
         """Покупает валюту"""
         if not self.user_manager.current_user:
@@ -260,7 +264,8 @@ class PortfolioManager:
                 f" стало {new_currency_balance:.4f}\n"
                 f"- USD: было {old_usd_balance:.2f} → стало {new_usd_balance:.2f}\n"
                 f"Оценочная стоимость покупки: {cost_usd:.2f} USD\n")
-        
+    
+    @log_sell(verbose=True)
     def sell_currency(self, currency_code: str, amount: float):
         """Продает валюту"""
         if not self.user_manager.current_user:
