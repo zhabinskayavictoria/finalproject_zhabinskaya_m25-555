@@ -1,6 +1,8 @@
 import datetime
 import hashlib
+
 from valutatrade_hub.core.exceptions import InsufficientFundsError
+
 
 class User:
     """Класс пользователя системы."""

@@ -1,23 +1,10 @@
-import json
-import os
-from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+from datetime import datetime, timedelta
+
 from valutatrade_hub.core.currencies import get_currency
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.settings import SettingsLoader
 
-def load_json(file_path: str):
-    """Загружает данные из JSON файла"""
-    if not os.path.exists(file_path):
-        return []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return []
-
-def save_json(data: list, file_path: str):
-    """Сохраняет данные в JSON файл"""
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def validate_currency_code(currency_code: str) -> str:
     """Валидирует и нормализует код валюты"""
@@ -27,8 +14,8 @@ def validate_currency_code(currency_code: str) -> str:
     try:
         get_currency(code)
     except CurrencyNotFoundError:
-        raise ValueError(f"Неизвестная валюта '{code}'\n")
-    return currency_code.upper()
+        raise CurrencyNotFoundError(code)
+    return code
 
 def validate_amount(amount) -> float:
     """Валидирует сумму"""
@@ -42,7 +29,8 @@ def validate_amount(amount) -> float:
 
 def get_exchange_rates():
     """Получает текущие курсы валют"""
-    rates_data = load_json('data/rates.json')
+    database = DatabaseManager()
+    rates_data = database.load_rates()
     if not rates_data or 'pairs' not in rates_data:
         return {
             "USD": 1.0,
@@ -60,3 +48,15 @@ def get_exchange_rates():
         rates[from_curr] = data['rate']
     rates["USD"] = 1.0
     return rates
+
+def is_rate_fresh(updated_at: str):
+    """Проверяет свежесть курса валюты"""
+    settings = SettingsLoader()
+    
+    try:
+        update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+        ttl_seconds = settings.get("RATES_TTL_SECONDS", 300)
+        expiry_time = update_time + timedelta(seconds=ttl_seconds)
+        return datetime.now().astimezone() < expiry_time
+    except (ValueError, TypeError):
+        return False

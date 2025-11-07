@@ -3,11 +3,13 @@ import hashlib
 import secrets
 from typing import Any, Dict, Optional
 
+from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.settings import SettingsLoader
+
 from .models import Portfolio, User, Wallet
 from .utils import (
     get_exchange_rates,
-    load_json,
-    save_json,
+    is_rate_fresh,
     validate_amount,
     validate_currency_code,
 )
@@ -17,8 +19,7 @@ class UserManager:
     """Класс менеджер для работы с пользователями"""
     def __init__(self):
         """Инициализирует менеджер пользователей"""
-        self.users_file = 'data/users.json'
-        self.portfolios_file = 'data/portfolios.json'
+        self.database = DatabaseManager()
         self.current_user: Optional[User] = None
 
     def register(self, username: str, password: str):
@@ -28,7 +29,7 @@ class UserManager:
         if len(password) < 4:
             raise ValueError("Пароль должен быть не короче 4 символов\n")
         
-        users = load_json(self.users_file)
+        users = self.database.load_users()
         for user_data in users:
             if user_data['username'] == username:
                 raise ValueError(f"Имя пользователя '{username}' уже занято\n")
@@ -40,22 +41,24 @@ class UserManager:
         salt = secrets.token_hex(8)
         hashed_password = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
         registration_date = datetime.datetime.now()
+        
         user = User(user_id, username, hashed_password, salt, registration_date)
         users.append(user.get_user_data())  
-        save_json(users, self.users_file)
+        self.database.save_users(users)
         
-        portfolios = load_json(self.portfolios_file)
+        portfolios = self.database.load_portfolios()
         portfolios.append({
             "user_id": user.user_id, 
             "wallets": {}
         })
-        save_json(portfolios, self.portfolios_file)
+        self.database.save_portfolios(portfolios)
+        
         return (f"Пользователь '{username}' зарегистрирован (id={user_id})."
                f" Войдите: login --username {username} --password ***\n")
 
     def login(self, username: str, password: str):
         """Вход пользователя в систему"""
-        users = load_json(self.users_file)
+        users = self.database.load_users()
         user_data = None
         for u in users:
             if u['username'] == username:
@@ -91,37 +94,44 @@ class PortfolioManager:
     def __init__(self, user_manager: UserManager):
         """Инициализирует менеджер портфелей."""
         self.user_manager = user_manager
-        self.portfolios_file = 'data/portfolios.json'
+        self.database = DatabaseManager()
 
     def _get_user_portfolio_data(self):
         """Получает данные портфеля текущего пользователя"""
         if not self.user_manager.current_user:
             raise ValueError("Сначала выполните login\n")
-        portfolios = load_json(self.portfolios_file)
+        
+        portfolios = self.database.load_portfolios()
         user_id = self.user_manager.current_user.user_id
+        
         for portfolio in portfolios:
             if portfolio['user_id'] == user_id:
                 return portfolio
+            
         portfolio_obj = Portfolio(user_id)
         new_portfolio = {
             "user_id": portfolio_obj.user_id, 
             "wallets": {}
         }
         portfolios.append(new_portfolio)
-        save_json(portfolios, self.portfolios_file)
+        self.database.save_portfolios(portfolios)
         return new_portfolio
 
     def _save_portfolio_data(self, portfolio_data: Dict[str, Any]):
         """Сохраняет данные портфеля"""
-        portfolios = load_json(self.portfolios_file)
+        portfolios = self.database.load_portfolios()
         user_id = self.user_manager.current_user.user_id
+        
+        found = False
         for i, portfolio in enumerate(portfolios):
             if portfolio['user_id'] == user_id:
                 portfolios[i] = portfolio_data
+                found = True
                 break
-        else:
+        if not found:
             portfolios.append(portfolio_data)
-        save_json(portfolios, self.portfolios_file)
+            
+        self.database.save_portfolios(portfolios)
 
     def deposit_usd(self, amount: float):
         """Пополняет USD кошелек"""
@@ -147,6 +157,9 @@ class PortfolioManager:
     def show_portfolio(self, base_currency: str = "USD"):
         """Показывает портфель пользователя"""
         portfolio_data = self._get_user_portfolio_data()
+        settings = SettingsLoader()
+        base_currency = base_currency or settings.get("DEFAULT_BASE_CURRENCY", "USD")
+        
         if not portfolio_data['wallets']:
             return "Ваш портфель пуст\n"
         
@@ -155,12 +168,15 @@ class PortfolioManager:
             wallets[curr_code] = Wallet(curr_code, wallet_data['balance'])
         portfolio = Portfolio(self.user_manager.current_user.user_id, wallets)
         exchange_rates = get_exchange_rates()
+        
         try:
             total_value = portfolio.get_total_value(base_currency, exchange_rates)
         except ValueError as e:
             return f"Ошибка: {e}\n"
+        
         username = self.user_manager.current_user.username
         output = [f"Портфель пользователя '{username}' (база: {base_currency}):"]
+        
         for wallet in portfolio.wallets.values():
             currency = wallet.currency_code
             balance = wallet.balance
@@ -252,6 +268,7 @@ class PortfolioManager:
         
         currency_code = validate_currency_code(currency_code)
         portfolio_data = self._get_user_portfolio_data()
+        
         if currency_code not in portfolio_data['wallets']:
             raise ValueError(f"У вас нет кошелька '{currency_code}'. "
                 f"Добавьте валюту: она создаётся автоматически при первой покупке.\n")
@@ -260,6 +277,7 @@ class PortfolioManager:
         currency_wallet = Wallet(currency_code, 
                                 portfolio_data['wallets'][currency_code]['balance'])
         old_currency_balance = currency_wallet.balance
+        
         if old_currency_balance < amount:
             raise ValueError(f"Недостаточно средств: доступно "
                             f"{old_currency_balance:.4f} {currency_code},"
@@ -299,16 +317,24 @@ class RateManager:
     """Класс менеджер для работы с курсами валют."""
     def __init__(self):
         """Инициализирует менеджер курсов."""
-        self.rates_file = 'data/rates.json'
+        self.database = DatabaseManager()
+        self.settings = SettingsLoader()
 
     def get_rate(self, from_currency: str, to_currency: str):
         """Получает курс между двумя валютами"""
         from_currency = validate_currency_code(from_currency)
         to_currency = validate_currency_code(to_currency)
-        rates_data = load_json(self.rates_file)
+        rates_data = self.database.load_rates()
+        
         if not rates_data or 'pairs' not in rates_data:
             return "Курсы валют недоступны. Повторите попытку позже.\n"
         
+        last_refresh = rates_data.get('last_refresh')
+        if last_refresh and not is_rate_fresh(last_refresh):
+            ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
+            return (f"Данные курсов устарели (TTL: {ttl_minutes} мин). "
+                    "Используйте команду update-rates для обновления.\n")
+            
         pair = f"{from_currency}_{to_currency}"
         if pair in rates_data['pairs']:
             rate_data = rates_data['pairs'][pair]

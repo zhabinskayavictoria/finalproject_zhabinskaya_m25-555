@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from valutatrade_hub.core.exceptions import CurrencyNotFoundError
 
 
@@ -55,14 +56,17 @@ class CryptoCurrency(Currency):
         if not isinstance(algorithm, str) or not algorithm.strip():
             raise ValueError("Алгоритм не может быть пустой строкой")
         if not isinstance(market_cap, (int, float)) or market_cap < 0:
-            raise ValueError("Рыночная капитализация должна быть неотрицательным числом")
+            raise ValueError("Капитализация должна быть неотрицательным числом")
         self.algorithm = algorithm
         self.market_cap = float(market_cap)
     
     def get_display_info(self) -> str:
         """Возвращает строковое представление криптовалюты"""
-        mcap_formatted = f"{self.market_cap:.2e}" if self.market_cap >= 1e6 else f"{self.market_cap:,.2f}"
-        return f"[CRYPTO] {self.code} — {self.name} (Algo: {self.algorithm}, MCAP: {mcap_formatted})"
+        mcap_formatted = (f"{self.market_cap:.2e}" 
+                        if self.market_cap >= 1e6 
+                        else f"{self.market_cap:,.2f}")
+        return (f"[CRYPTO] {self.code} — {self.name} (Algo: "
+                f"{self.algorithm}, MCAP: {mcap_formatted})")
 
 
 _SUPPORTED_CURRENCIES = {

@@ -1,14 +1,13 @@
 import shlex
 
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
 from valutatrade_hub.core.usecases import PortfolioManager, RateManager, UserManager
 
-from valutatrade_hub.core.exceptions import (
-    InsufficientFundsError, 
-    CurrencyNotFoundError, 
-    ApiRequestError,
-    UserNotFoundError,
-    AuthenticationError
-)
+
 class CLIInterface:
     """Консольный интерфейс для управления валютным портфелем."""
     
@@ -149,7 +148,7 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <валюта>' для просмотра доступных валют\n")
+            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
         except InsufficientFundsError as e:
             print(f"Ошибка: {e}\n")
         except Exception as e:
@@ -177,7 +176,7 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <валюта>' для просмотра доступных валют\n")
+            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
         except InsufficientFundsError as e:
             print(f"Ошибка: {e}\n")
         except Exception as e:
@@ -195,7 +194,7 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <валюта>' для просмотра доступных валют\n")
+            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
         except ApiRequestError as e:
             print(f"Ошибка: {e}\n")
             print("Повторите попытку позже или проверьте подключение к сети\n")
