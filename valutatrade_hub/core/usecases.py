@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 from valutatrade_hub.decorators import log_buy, log_login, log_register, log_sell
+from valutatrade_hub.core.currencies import get_currency
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError, ApiRequestError, InsufficientFundsError
 
 from .models import Portfolio, User, Wallet
 from .utils import (
@@ -211,14 +213,19 @@ class PortfolioManager:
         if not self.user_manager.current_user:
             raise ValueError("Сначала выполните login\n")
         
-        currency_code = validate_currency_code(currency_code)
+        try:
+            currency = get_currency(currency_code)
+            currency_code = currency.code  
+        except CurrencyNotFoundError:
+            raise CurrencyNotFoundError(currency_code)
+        
         portfolio_data = self._get_user_portfolio_data()
         exchange_rates = get_exchange_rates()
 
         if currency_code not in exchange_rates:
-            raise ValueError(f"Не удалось получить курс для {currency_code}→USD\n")
+            raise ApiRequestError(f"Не удалось получить курс для {currency_code}→USD")
+                
         amount = validate_amount(amount)
-        
         rate = exchange_rates[currency_code]
         cost_usd = amount * rate
         usd_wallet = None
@@ -230,10 +237,11 @@ class PortfolioManager:
             old_usd_balance = 0.0
         
         if old_usd_balance < cost_usd:
-            raise ValueError(
-                f"Недостаточно средств: требуется {cost_usd:.2f} USD, "
-                f"доступно {old_usd_balance:.2f} USD\n"
-                )
+            raise InsufficientFundsError(
+                available=old_usd_balance,
+                required=cost_usd,
+                code='USD'
+            )
         
         if currency_code in portfolio_data['wallets']:
             currency_wallet = Wallet(currency_code, 
@@ -271,7 +279,12 @@ class PortfolioManager:
         if not self.user_manager.current_user:
             raise ValueError("Сначала выполните login\n")
         
-        currency_code = validate_currency_code(currency_code)
+        try:
+            currency = get_currency(currency_code)
+            currency_code = currency.code  # Нормализованный код
+        except CurrencyNotFoundError:
+            raise CurrencyNotFoundError(currency_code)
+        
         portfolio_data = self._get_user_portfolio_data()
         
         if currency_code not in portfolio_data['wallets']:
@@ -284,13 +297,15 @@ class PortfolioManager:
         old_currency_balance = currency_wallet.balance
         
         if old_currency_balance < amount:
-            raise ValueError(f"Недостаточно средств: доступно "
-                            f"{old_currency_balance:.4f} {currency_code},"
-                        f" требуется {amount:.4f} {currency_code}\n")
+            raise InsufficientFundsError(
+                available=old_currency_balance,
+                required=amount,
+                code=currency_code
+            )
         
         exchange_rates = get_exchange_rates()
         if currency_code not in exchange_rates:
-            raise ValueError(f"Не удалось получить курс для {currency_code}→USD\n")
+            raise ApiRequestError(f"Не удалось получить курс для {currency_code}→USD")
         
         rate = exchange_rates[currency_code]
         revenue_usd = amount * rate
@@ -326,19 +341,24 @@ class RateManager:
         self.settings = SettingsLoader()
 
     def get_rate(self, from_currency: str, to_currency: str):
-        """Получает курс между двумя валютами"""
-        from_currency = validate_currency_code(from_currency)
-        to_currency = validate_currency_code(to_currency)
+        """Получает курс между двумя валютами с улучшенной валидацией"""
+        try:
+            from_currency_obj = get_currency(from_currency)
+            to_currency_obj = get_currency(to_currency)
+            from_currency = from_currency_obj.code
+            to_currency = to_currency_obj.code
+        except CurrencyNotFoundError as e:
+            raise e
+        
         rates_data = self.database.load_rates()
-        
         if not rates_data or 'pairs' not in rates_data:
-            return "Курсы валют недоступны. Повторите попытку позже.\n"
+            raise ApiRequestError("Курсы валют недоступны")
         
+
         last_refresh = rates_data.get('last_refresh')
         if last_refresh and not is_rate_fresh(last_refresh):
             ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
-            return (f"Данные курсов устарели (TTL: {ttl_minutes} мин). "
-                    "Используйте команду update-rates для обновления.\n")
+            raise ApiRequestError(f"Данные курсов устарели (TTL: {ttl_minutes} мин). Используйте команду update-rates для обновления.")
             
         pair = f"{from_currency}_{to_currency}"
         if pair in rates_data['pairs']:
@@ -365,5 +385,4 @@ class RateManager:
                         f"Обратный курс {to_currency}→{from_currency}:"
                         f" {reverse_rate:.6f}\n")
         
-        return (f"Курс {from_currency}→{to_currency} недоступен. "
-                f"Повторите попытку позже.\n")
+        raise ApiRequestError(f"Курс {from_currency}→{to_currency} недоступен")

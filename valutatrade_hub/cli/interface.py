@@ -147,10 +147,15 @@ class CLIInterface:
             result = self.portfolio_manager.buy_currency(parsed['currency'], amount)
             print(result)
         except CurrencyNotFoundError as e:
-            print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
+            print(f"Ошибка: {e}")
+            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT")
+            print("Используйте правильные коды валют в верхнем регистре\n")
         except InsufficientFundsError as e:
-            print(f"Ошибка: {e}\n")
+            print(f"Ошибка: {e}")
+            print("Пополните баланс USD с помощью команды 'deposit --amount <сумма>'\n")
+        except ApiRequestError as e:
+            print(f"Ошибка: {e}")
+            print("Повторите попытку позже или проверьте подключение к сети\n")
         except Exception as e:
             print(f"Ошибка: {e}\n")
 
@@ -175,10 +180,15 @@ class CLIInterface:
             result = self.portfolio_manager.sell_currency(parsed['currency'], amount)
             print(result)
         except CurrencyNotFoundError as e:
-            print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
+            print(f"Ошибка: {e}")
+            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT")
+            print("Используйте правильные коды валют в верхнем регистре\n")
         except InsufficientFundsError as e:
-            print(f"Ошибка: {e}\n")
+            print(f"Ошибка: {e}")
+            print("Убедитесь, что у вас достаточно средств для продажи\n")
+        except ApiRequestError as e:
+            print(f"Ошибка: {e}")
+            print("Повторите попытку позже или проверьте подключение к сети\n")
         except Exception as e:
             print(f"Ошибка: {e}\n")
             
@@ -194,13 +204,14 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}\n")
-            print("Используйте 'get-rate --from USD --to <code>' для просмотра валют\n")
+            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT\n")
+            print("Используйте правильные коды валют в верхнем регистре\n")
         except ApiRequestError as e:
             print(f"Ошибка: {e}\n")
-            print("Повторите попытку позже или проверьте подключение к сети\n")
+            print("Повторите попытку позже или используйте команду 'update-rates' для обновления данных\n")
         except Exception as e:
             print(f"Ошибка: {e}\n")
-
+            
     def process_command(self, command_line: str):
         """Обрабатывает введенную команду"""
         if not command_line.strip():
