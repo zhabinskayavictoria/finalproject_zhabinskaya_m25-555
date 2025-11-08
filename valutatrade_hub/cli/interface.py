@@ -148,7 +148,8 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}")
-            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT")
+            print('Доступные валюты: USD, EUR, GBP, JPY, '
+                'RUB, CNY, BTC, ETH, SOL, ADA, DOT')
             print("Используйте правильные коды валют в верхнем регистре\n")
         except InsufficientFundsError as e:
             print(f"Ошибка: {e}")
@@ -181,7 +182,8 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}")
-            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT")
+            print('Доступные валюты: USD, EUR, GBP, '
+                'JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT')
             print("Используйте правильные коды валют в верхнем регистре\n")
         except InsufficientFundsError as e:
             print(f"Ошибка: {e}")
@@ -204,11 +206,12 @@ class CLIInterface:
             print(result)
         except CurrencyNotFoundError as e:
             print(f"Ошибка: {e}\n")
-            print("Доступные валюты: USD, EUR, GBP, JPY, RUB, CNY, BTC, ETH, SOL, ADA, DOT\n")
+            print('Доступные валюты: USD, EUR, GBP, JPY,'
+                ' RUB, CNY, BTC, ETH, SOL, ADA, DOT\n')
             print("Используйте правильные коды валют в верхнем регистре\n")
         except ApiRequestError as e:
             print(f"Ошибка: {e}\n")
-            print("Повторите попытку позже или используйте команду 'update-rates' для обновления данных\n")
+            print("Повторите попытку позже или используйте команду 'update-rates'\n")
         except Exception as e:
             print(f"Ошибка: {e}\n")
             

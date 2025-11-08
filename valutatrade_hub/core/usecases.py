@@ -3,18 +3,21 @@ import hashlib
 import secrets
 from typing import Any, Dict, Optional
 
+from valutatrade_hub.core.currencies import get_currency
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
+from valutatrade_hub.decorators import log_buy, log_login, log_register, log_sell
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
-from valutatrade_hub.decorators import log_buy, log_login, log_register, log_sell
-from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import CurrencyNotFoundError, ApiRequestError, InsufficientFundsError
 
 from .models import Portfolio, User, Wallet
 from .utils import (
     get_exchange_rates,
     is_rate_fresh,
     validate_amount,
-    validate_currency_code,
 )
 
 
@@ -358,7 +361,8 @@ class RateManager:
         last_refresh = rates_data.get('last_refresh')
         if last_refresh and not is_rate_fresh(last_refresh):
             ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
-            raise ApiRequestError(f"Данные курсов устарели (TTL: {ttl_minutes} мин). Используйте команду update-rates для обновления.")
+            raise ApiRequestError(f"Данные курсов устарели (TTL: {ttl_minutes} мин). "
+                                f"Используйте команду update-rates для обновления.")
             
         pair = f"{from_currency}_{to_currency}"
         if pair in rates_data['pairs']:
