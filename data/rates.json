@@ -1,30 +1,55 @@
 {
   "pairs": {
+    "BTC_USD": {
+      "rate": 106443.0,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
+      "source": "CoinGecko"
+    },
+    "ETH_USD": {
+      "rate": 3614.9,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
+      "source": "CoinGecko"
+    },
+    "SOL_USD": {
+      "rate": 168.34,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
+      "source": "CoinGecko"
+    },
+    "ADA_USD": {
+      "rate": 0.593701,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
+      "source": "CoinGecko"
+    },
+    "DOT_USD": {
+      "rate": 3.25,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
+      "source": "CoinGecko"
+    },
     "EUR_USD": {
-      "rate": 1.1562030292519367,
-      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "rate": 1.155268022181146,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
       "source": "ExchangeRate-API"
     },
     "GBP_USD": {
       "rate": 1.3142331449599158,
-      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "updated_at": "2025-11-10T09:40:35.419694Z",
       "source": "ExchangeRate-API"
     },
     "JPY_USD": {
-      "rate": 0.006522825322651555,
-      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "rate": 0.006509437708261323,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
       "source": "ExchangeRate-API"
     },
     "RUB_USD": {
-      "rate": 0.01235081756236854,
-      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "rate": 0.012358556322884587,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
       "source": "ExchangeRate-API"
     },
     "CNY_USD": {
-      "rate": 0.14034890738375602,
-      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "rate": 0.14029574342714443,
+      "updated_at": "2025-11-10T09:40:35.419694Z",
       "source": "ExchangeRate-API"
     }
   },
-  "last_refresh": "2025-11-09T17:30:41.776136Z"
+  "last_refresh": "2025-11-10T09:40:35.419694Z"
 }
