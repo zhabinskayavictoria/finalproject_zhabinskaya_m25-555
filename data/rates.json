@@ -1,36 +1,30 @@
 {
-"pairs": {
+  "pairs": {
     "EUR_USD": {
-    "rate": 1.0786,
-    "updated_at": "2025-10-09T10:30:00",
-    "source": "ParserService"
+      "rate": 1.1562030292519367,
+      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "source": "ExchangeRate-API"
     },
-    "BTC_USD": {
-    "rate": 59337.21,
-    "updated_at": "2025-10-09T10:29:42",
-    "source": "ParserService"
+    "GBP_USD": {
+      "rate": 1.3142331449599158,
+      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "source": "ExchangeRate-API"
+    },
+    "JPY_USD": {
+      "rate": 0.006522825322651555,
+      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "source": "ExchangeRate-API"
     },
     "RUB_USD": {
-    "rate": 0.01016,
-    "updated_at": "2025-10-09T10:31:12",
-    "source": "ParserService"
+      "rate": 0.01235081756236854,
+      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "source": "ExchangeRate-API"
     },
-    "ETH_USD": {
-    "rate": 3720.00,
-    "updated_at": "2025-10-09T10:35:00",
-    "source": "ParserService"
-    },
-    "USD_EUR": {
-    "rate": 0.927,
-    "updated_at": "2025-10-09T10:30:00",
-    "source": "ParserService"
-    },
-    "USD_BTC": {
-    "rate": 0.00001685,
-    "updated_at": "2025-10-09T10:29:42",
-    "source": "ParserService"
+    "CNY_USD": {
+      "rate": 0.14034890738375602,
+      "updated_at": "2025-11-09T17:30:41.776136Z",
+      "source": "ExchangeRate-API"
     }
-},
-"last_refresh": "2025-10-09T10:35:00",
-"source": "ParserService"
+  },
+  "last_refresh": "2025-11-09T17:30:41.776136Z"
 }

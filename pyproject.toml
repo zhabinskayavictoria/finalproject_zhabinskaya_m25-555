@@ -14,17 +14,25 @@ project = "main:main"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 prettytable = "^3.16.0"
+requests = "^2.32.3"
+python-dotenv = "^1.0.0"
 
 [tool.valutatrade]
-data_dir = "data"
-rates_ttl_seconds = 300
-default_base_currency = "USD"
-log_dir = "logs"
-log_file = "valutatrade.log"
-log_level = "INFO"
-log_format = "text"
-log_max_size_mb = 10
-log_backup_count = 3
+DATA_DIR = "data"
+USERS_FILE = "data/users.json"
+PORTFOLIOS_FILE = "data/portfolios.json"
+RATES_FILE = "data/rates.json"
+EXCHANGE_RATES_FILE = "data/exchange_rates.json"
+RATES_TTL_SECONDS = 300
+DEFAULT_BASE_CURRENCY = "USD"
+LOG_DIR = "logs"
+LOG_FILE = "valutatrade.log"
+ACTIONS_LOG_FILE = "actions.log" 
+PARSER_LOG_FILE = "parser.log"
+LOG_LEVEL = "INFO"
+LOG_FORMAT = "text"
+LOG_MAX_SIZE_MB = 10
+LOG_BACKUP_COUNT = 3
 
 [tool.ruff]
 line-length = 88

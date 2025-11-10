@@ -8,12 +8,14 @@ class SettingsLoader:
     _instance = None
     
     def __new__(cls):
+        """Реализация паттерна Singleton"""
         if cls._instance is None:
             cls._instance = super(SettingsLoader, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     
     def __init__(self):
+        """Инициализирует единственный экземпляр с конфигурацией"""
         if not self._initialized:
             self._config = {}
             self._load_config()
@@ -31,6 +33,8 @@ class SettingsLoader:
             "DEFAULT_BASE_CURRENCY": "USD",
             "LOG_DIR": "logs",
             "LOG_FILE": "valutatrade.log",
+            "ACTIONS_LOG_FILE" : "actions.log",
+            "PARSER_LOG_FILE": "parser.log", 
             "LOG_LEVEL": "INFO",
             "LOG_FORMAT": "text",
             "LOG_MAX_SIZE_MB": 10,

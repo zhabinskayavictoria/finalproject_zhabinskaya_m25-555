@@ -1,4 +1,8 @@
+import json
+import os
 import shlex
+
+from prettytable import PrettyTable
 
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
@@ -6,6 +10,9 @@ from valutatrade_hub.core.exceptions import (
     InsufficientFundsError,
 )
 from valutatrade_hub.core.usecases import PortfolioManager, RateManager, UserManager
+from valutatrade_hub.parser_service.config import ParserConfig
+from valutatrade_hub.parser_service.storage import RatesStorage
+from valutatrade_hub.parser_service.updater import RatesUpdater
 
 
 class CLIInterface:
@@ -16,6 +23,8 @@ class CLIInterface:
         self.user_manager = UserManager()
         self.portfolio_manager = PortfolioManager(self.user_manager)
         self.rate_manager = RateManager()
+        self.rates_updater = RatesUpdater()
+        self.rates_storage = RatesStorage(ParserConfig())
         self.running = False
 
     def print_help(self):
@@ -29,13 +38,14 @@ class CLIInterface:
 
         Работа с портфелем:
         show-portfolio [--base <currency>]           - Показать портфель 
-                                                    (базовая валюта по умолчанию: USD)
         deposit --amount <sum>                       - Пополнить USD кошелек
         buy --currency <code> --amount <sum>         - Купить валюту за USD
         sell --currency <code> --amount <sum>        - Продать валюту за USD
 
         Курсы валют:
-        get-rate --from <code> --to <code>           - Получить курс между валютами
+        get-rate --from <code> --to <code>          - Получить курс между валютами
+        update-rates [--source <source>]            - Обновить курсы валют
+        show-rates [--currency <code>] [--top <N>]  - Показать актуальные курсы
 
         Прочие команды:
         help                                        - Показать команды
@@ -110,8 +120,8 @@ class CLIInterface:
             amount = float(parsed['amount'])
             result = self.portfolio_manager.deposit_usd(amount)
             print(result)
-        except ValueError:
-            print("Ошибка: Сумма должна быть числом\n")
+        except ValueError as e:
+            print(f"Ошибка: {e}\n")
         except Exception as e:
             print(f"Ошибка: {e}\n")
 
@@ -132,7 +142,6 @@ class CLIInterface:
             if '--currency' in missing or '--amount' in missing:
                 print("Ошибка в команде: buy --currency <code> --amount <sum>\n")
             return
-
         try:
             amount = float(parsed['amount'])
         except ValueError:
@@ -141,7 +150,6 @@ class CLIInterface:
         if amount <= 0:
             print("Ошибка: Сумма должна быть положительной\n")
             return
-        
         try:
             amount = float(parsed['amount'])
             result = self.portfolio_manager.buy_currency(parsed['currency'], amount)
@@ -167,7 +175,6 @@ class CLIInterface:
             if '--currency' in missing or '--amount' in missing:
                 print("Ошибка в команде: sell --currency <code> --amount <sum>\n")
             return
-
         try:
             amount = float(parsed['amount'])
         except ValueError:
@@ -176,7 +183,6 @@ class CLIInterface:
         if amount <= 0:
             print("Ошибка: Сумма должна быть положительной\n")
             return
-        
         try:
             result = self.portfolio_manager.sell_currency(parsed['currency'], amount)
             print(result)
@@ -215,6 +221,135 @@ class CLIInterface:
         except Exception as e:
             print(f"Ошибка: {e}\n")
             
+    def handle_update_rates(self, args):
+        """Обрабатывает команду update-rates"""
+        parsed, _ = self._parse_simple_args(args, [])
+        source = parsed.get('source')
+        sources = None
+        if source:
+            if source.lower() in ['coingecko', 'exchangerate']:
+                sources = [source.lower()]
+            else:
+                print(f"Ошибка: Неизвестный источник '{source}'.")
+                print("Используйте 'coingecko' или 'exchangerate'\n")
+                return
+        try:
+            print("Starting rates update...")
+            stats = self.rates_updater.run_update(sources)
+            if stats["sources_updated"]:
+                print(f"Update successful. Total rates updated: {stats['total_rates']}")
+                print(f"Last refresh: {stats.get('last_refresh', 'N/A')}")
+            else:
+                print("Обновление не удалось. Ни один источник не вернул данные.")
+            if stats["sources_failed"]:
+                print("Update completed with errors.")
+                print("Check logs/parser.log for details.")
+        except Exception as e:
+            print(f"Ошибка при обновлении курсов: {e}\n")
+
+    def handle_show_rates(self, args):
+        """Обрабатывает команду show-rates"""
+        parsed, _ = self._parse_simple_args(args, [])
+        currency_filter = parsed.get('currency')
+        top_count = parsed.get('top')
+        
+        try:
+            rates_file = "data/rates.json"
+            if not os.path.exists(rates_file):
+                print("Локальный кеш курсов пуст.")
+                print("Выполните 'update-rates', чтобы загрузить данные.\n")
+                return
+            with open(rates_file, 'r', encoding='utf-8') as f:
+                rates_data = json.load(f)
+            if not rates_data or 'pairs' not in rates_data or not rates_data['pairs']:
+                print("Локальный кеш курсов пуст.")
+                print("Выполните 'update-rates', чтобы загрузить данные.\n")
+                return
+            pairs = rates_data['pairs']
+            last_refresh = rates_data.get('last_refresh', 'Неизвестно')
+            
+            warning_msg = ""
+            if last_refresh != 'unknow':
+                from valutatrade_hub.core.utils import is_rate_fresh
+                from valutatrade_hub.infra.settings import SettingsLoader
+                settings = SettingsLoader()
+                
+                if not is_rate_fresh(last_refresh):
+                    ttl_minutes = settings.get("RATES_TTL_SECONDS", 300) // 60
+                    warning_msg = (f"\nВНИМАНИЕ: Данные курсов устарели "
+                                f"(TTL: {ttl_minutes} мин). "
+                                f"Используйте 'update-rates' для обновления.")
+                    
+            try:
+                if 'T' in last_refresh:
+                    date_part, time_part = last_refresh.split('T')
+                    time_part = time_part.split('.')[0]  
+                    formatted_refresh = f"{date_part} {time_part}"
+                else:
+                    formatted_refresh = last_refresh
+            except Exception:
+                formatted_refresh = last_refresh
+            
+            table = PrettyTable()
+            table.field_names = ["Valute pair", "Rate", "Source"]
+            table.align["Valute pair"] = "l"
+            table.align["Rate"] = "r"
+            table.align["Source"] = "l"
+            filtered_items = []
+            for pair, data in pairs.items():
+                if currency_filter:
+                    currency_upper = currency_filter.upper()
+                    if (pair.startswith(currency_upper + "_") or 
+                        pair.endswith("_" + currency_upper)):
+                        filtered_items.append((pair, data))
+                else:
+                    filtered_items.append((pair, data))
+            
+            if top_count:
+                try:
+                    top_n = int(top_count)
+                    if top_n <= 0:
+                        print("Ошибка: --top должен быть положительным числом\n")
+                        return
+                    filtered_items.sort(key=lambda x: x[1]['rate'], reverse=True)
+                    filtered_items = filtered_items[:top_n]
+                except ValueError:
+                    print("Ошибка: параметр --top должен быть числом\n")
+                    return
+            else:
+                filtered_items.sort(key=lambda x: x[0])
+        
+            if not filtered_items:
+                if currency_filter:
+                    print(f"Курс для '{currency_filter}' не найден в кеше.\n")
+                else:
+                    print("Нет данных о курсах для отображения.\n")
+                return
+            
+            for pair, data in filtered_items:
+                rate = data['rate']
+                if rate < 0.001:
+                    formatted_rate = f"{rate:.8f}"
+                elif rate < 1:
+                    formatted_rate = f"{rate:.6f}"
+                elif rate < 1000:
+                    formatted_rate = f"{rate:.4f}"
+                else:
+                    formatted_rate = f"{rate:,.2f}"
+                
+                table.add_row([
+                    pair,
+                    formatted_rate,
+                    data.get('source', 'Unknown')
+                ])
+            print(f"Rates from cache (updated at {formatted_refresh}):")
+            print(table)
+            if warning_msg:
+                print(warning_msg)
+            print()  
+        except Exception as e:
+            print(f"Ошибка при отображении курсов: {e}\n")
+
     def process_command(self, command_line: str):
         """Обрабатывает введенную команду"""
         if not command_line.strip():
@@ -243,6 +378,10 @@ class CLIInterface:
             self.handle_sell(command_args)
         elif command == 'get-rate':
             self.handle_get_rate(command_args)
+        elif command == 'update-rates':
+            self.handle_update_rates(command_args)
+        elif command == 'show-rates':
+            self.handle_show_rates(command_args)
         else:
             print(f"Неизвестная команда: {command}. Введите 'help'.\n")
 

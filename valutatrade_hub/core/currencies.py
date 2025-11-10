@@ -15,17 +15,17 @@ class Currency(ABC):
     def _validate_name(self, name: str):
         """Проверяет валидность имени валюты"""
         if not isinstance(name, str) or not name.strip():
-            raise ValueError("Название валюты не может быть пустой строкой")
+            raise ValueError("Название валюты не может быть пустой строкой\n")
     
     def _validate_code(self, code: str):
         """Проверяет валидность кода валюты"""
         if not isinstance(code, str) or not code.strip():
-            raise ValueError("Код валюты не может быть пустой строкой")
+            raise ValueError("Код валюты не может быть пустой строкой\n")
         code_upper = code.upper()
         if len(code_upper) < 2 or len(code_upper) > 5:
-            raise ValueError("Код валюты должен содержать от 2 до 5 символов")
+            raise ValueError("Код валюты должен содержать от 2 до 5 символов\n")
         if ' ' in code_upper:
-            raise ValueError("Код валюты не может содержать пробелы")
+            raise ValueError("Код валюты не может содержать пробелы\n")
     
     @abstractmethod
     def get_display_info(self) -> str:
@@ -40,12 +40,12 @@ class FiatCurrency(Currency):
         """Инициализирует фиатную валюту"""
         super().__init__(name, code)
         if not isinstance(issuing_country, str) or not issuing_country.strip():
-            raise ValueError("Страна не может быть пустой строкой")
+            raise ValueError("Страна не может быть пустой строкой\n")
         self.issuing_country = issuing_country
     
     def get_display_info(self) -> str:
         """Возвращает строковое представление фиатной валюты"""
-        return f"[FIAT] {self.code} — {self.name} (Issuing: {self.issuing_country})"
+        return f"[FIAT] {self.code} — {self.name} (Issuing: {self.issuing_country})\n"
 
 
 class CryptoCurrency(Currency):
@@ -54,9 +54,9 @@ class CryptoCurrency(Currency):
         """Инициализирует криптовалюту"""
         super().__init__(name, code)
         if not isinstance(algorithm, str) or not algorithm.strip():
-            raise ValueError("Алгоритм не может быть пустой строкой")
+            raise ValueError("Алгоритм не может быть пустой строкой\n")
         if not isinstance(market_cap, (int, float)) or market_cap < 0:
-            raise ValueError("Капитализация должна быть неотрицательным числом")
+            raise ValueError("Капитализация должна быть неотрицательным числом\n")
         self.algorithm = algorithm
         self.market_cap = float(market_cap)
     
@@ -86,10 +86,10 @@ _SUPPORTED_CURRENCIES = {
 def get_currency(code: str) -> Currency:
     """Фабричный метод для получения валюты по коду"""
     if not isinstance(code, str):
-        raise CurrencyNotFoundError(f"Код валюты должен быть строкой: {code}")
+        raise CurrencyNotFoundError(f"Код валюты должен быть строкой: {code}\n")
     code_upper = code.upper().strip()
     if not code_upper:
-        raise CurrencyNotFoundError("Код валюты не может быть пустой строкой")
+        raise CurrencyNotFoundError("Код валюты не может быть пустой строкой\n")
     if code_upper not in _SUPPORTED_CURRENCIES:
-        raise CurrencyNotFoundError(f"Неизвестная валюта '{code_upper}'")
+        raise CurrencyNotFoundError(f"Неизвестная валюта '{code_upper}'\n")
     return _SUPPORTED_CURRENCIES[code_upper]

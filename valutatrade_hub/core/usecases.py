@@ -103,6 +103,7 @@ class PortfolioManager:
         """Инициализирует менеджер портфелей."""
         self.user_manager = user_manager
         self.database = DatabaseManager()
+        self.settings = SettingsLoader()
 
     def _get_user_portfolio_data(self):
         """Получает данные портфеля текущего пользователя"""
@@ -165,8 +166,8 @@ class PortfolioManager:
     def show_portfolio(self, base_currency: str = "USD"):
         """Показывает портфель пользователя"""
         portfolio_data = self._get_user_portfolio_data()
-        settings = SettingsLoader()
-        base_currency = base_currency or settings.get("DEFAULT_BASE_CURRENCY", "USD")
+        base_currency = (base_currency or 
+                        self.settings.get("DEFAULT_BASE_CURRENCY", "USD"))
         
         if not portfolio_data['wallets']:
             return "Ваш портфель пуст\n"
@@ -177,6 +178,16 @@ class PortfolioManager:
         portfolio = Portfolio(self.user_manager.current_user.user_id, wallets)
         exchange_rates = get_exchange_rates()
         
+        rates_data = self.database.load_rates()
+        warning_msg = ""
+        if rates_data and 'last_refresh' in rates_data:
+            last_refresh = rates_data.get('last_refresh')
+            if last_refresh and not is_rate_fresh(last_refresh):
+                ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
+                warning_msg = (f"\nВНИМАНИЕ: Данные курсов устарели "
+                            f"(TTL: {ttl_minutes} мин). "
+                            f"Используйте 'update-rates' для обновления.")
+            
         try:
             total_value = portfolio.get_total_value(base_currency, exchange_rates)
         except ValueError as e:
@@ -189,6 +200,12 @@ class PortfolioManager:
             currency = wallet.currency_code
             balance = wallet.balance
             
+            try:
+                currency_obj = get_currency(currency)
+                currency_info = currency_obj.get_display_info().strip()
+            except CurrencyNotFoundError:
+                currency_info = f"Неизвестная валюта: {currency}"
+        
             if currency in exchange_rates:
                 if base_currency in exchange_rates:
                     rate_to_base = (
@@ -196,20 +213,27 @@ class PortfolioManager:
                     )
                     value_in_base = balance * rate_to_base
                     output.append(
-                        f"- {currency}: {balance:.4f} → "
+                        f"- {currency_info}"
+                        f"\n  Баланс: {balance:.4f} → "
                         f"{value_in_base:.2f} {base_currency}"
-                        )
+                    )
                 else:
                     output.append(
-                        f"- {currency}: {balance:.4f} → курс для"
+                        f"- {currency_info}"
+                        f"\n  Баланс: {balance:.4f} → курс для"
                         f" {base_currency} не найден"
-                        )
+                    )
             else:
-                output.append(f"- {currency}: {balance:.4f} → курс не найден")
+                output.append(
+                    f"- {currency_info}"
+                    f"\n  Баланс: {balance:.4f} → курс не найден"
+                )
         output.append("-" * 40)
         output.append(f"ИТОГО: {total_value:,.2f} {base_currency}\n")
+        if warning_msg:
+            output.append(warning_msg+"\n")
         return "\n".join(output)
-    
+        
     @log_buy(verbose=True)
     def buy_currency(self, currency_code: str, amount: float):
         """Покупает валюту"""
@@ -224,6 +248,15 @@ class PortfolioManager:
         
         portfolio_data = self._get_user_portfolio_data()
         exchange_rates = get_exchange_rates()
+        
+        rates_data = self.database.load_rates()
+        if rates_data and 'last_refresh' in rates_data:
+            last_refresh = rates_data.get('last_refresh')
+            if last_refresh and not is_rate_fresh(last_refresh):
+                ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
+                raise ApiRequestError(f"Данные курсов устарели (TTL: "
+                                    f"{ttl_minutes} мин). "
+                                    f"Используйте команду update-rates для обновления.")
 
         if currency_code not in exchange_rates:
             raise ApiRequestError(f"Не удалось получить курс для {currency_code}→USD")
@@ -284,7 +317,7 @@ class PortfolioManager:
         
         try:
             currency = get_currency(currency_code)
-            currency_code = currency.code  # Нормализованный код
+            currency_code = currency.code  
         except CurrencyNotFoundError:
             raise CurrencyNotFoundError(currency_code)
         
@@ -306,6 +339,14 @@ class PortfolioManager:
                 code=currency_code
             )
         
+        rates_data = self.database.load_rates()
+        if rates_data and 'last_refresh' in rates_data:
+            last_refresh = rates_data.get('last_refresh')
+            if last_refresh and not is_rate_fresh(last_refresh):
+                ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
+                raise ApiRequestError(f"Данные курсов устарели (TTL: {ttl_minutes}мин)."
+                                    f"Используйте команду update-rates для обновления.")
+
         exchange_rates = get_exchange_rates()
         if currency_code not in exchange_rates:
             raise ApiRequestError(f"Не удалось получить курс для {currency_code}→USD")
@@ -344,7 +385,7 @@ class RateManager:
         self.settings = SettingsLoader()
 
     def get_rate(self, from_currency: str, to_currency: str):
-        """Получает курс между двумя валютами с улучшенной валидацией"""
+        """Получает курс между двумя валютами"""
         try:
             from_currency_obj = get_currency(from_currency)
             to_currency_obj = get_currency(to_currency)
@@ -359,19 +400,34 @@ class RateManager:
         
 
         last_refresh = rates_data.get('last_refresh')
+        warning_msg = ""
         if last_refresh and not is_rate_fresh(last_refresh):
             ttl_minutes = self.settings.get("RATES_TTL_SECONDS", 300) // 60
-            raise ApiRequestError(f"Данные курсов устарели (TTL: {ttl_minutes} мин). "
-                                f"Используйте команду update-rates для обновления.")
-            
+            warning_msg = (f"\nВНИМАНИЕ: Данные курсов устарели "
+                        f"(TTL: {ttl_minutes}мин)."
+                        f"Используйте 'update-rates' для обновления.")
+                
         pair = f"{from_currency}_{to_currency}"
         if pair in rates_data['pairs']:
             rate_data = rates_data['pairs'][pair]
             rate = rate_data['rate']
             updated_at = rate_data['updated_at']
             reverse_rate = 1 / rate if rate != 0 else 0
-            return (f"Курс {from_currency}→{to_currency}: {rate:.6f}"
+            return (f"{warning_msg}\n"
+                    f"Курс {from_currency}→{to_currency}: {rate:.6f}"
                     f" (обновлено: {updated_at})\n"
+                    f"Обратный курс {to_currency}→{from_currency}: "
+                    f"{reverse_rate:.6f}\n")
+        
+        reverse_pair = f"{to_currency}_{from_currency}"
+        if reverse_pair in rates_data['pairs']:
+            rate_data = rates_data['pairs'][reverse_pair]
+            reverse_rate = rate_data['rate']
+            rate = 1 / reverse_rate if reverse_rate != 0 else 0
+            updated_at = rate_data['updated_at']
+            return (f"{warning_msg}\n"
+                    f"Курс {from_currency}→{to_currency}: {rate:.6f}"
+                    f" (обновлено: {updated_at})"
                     f"Обратный курс {to_currency}→{from_currency}: "
                     f"{reverse_rate:.6f}\n")
         
@@ -384,7 +440,8 @@ class RateManager:
                 cross_rate = rate1 / rate2
                 updated_at = rates_data['pairs'][usd_pair1]['updated_at']
                 reverse_rate = 1 / cross_rate if cross_rate != 0 else 0
-                return (f"Курс {from_currency}→{to_currency}: "
+                return (f"{warning_msg}\n"
+                        f"Курс {from_currency}→{to_currency}: "
                         f"{cross_rate:.6f} (обновлено: {updated_at})\n"
                         f"Обратный курс {to_currency}→{from_currency}:"
                         f" {reverse_rate:.6f}\n")

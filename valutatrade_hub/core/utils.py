@@ -27,6 +27,18 @@ def validate_amount(amount) -> float:
         raise ValueError("Сумма должна быть положительной\n")
     return amount_float
 
+def is_rate_fresh(updated_at: str):
+    """Проверяет свежесть курса валюты"""
+    settings = SettingsLoader()
+    
+    try:
+        update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+        ttl_seconds = settings.get("RATES_TTL_SECONDS", 300)
+        expiry_time = update_time + timedelta(seconds=ttl_seconds)
+        return datetime.now().astimezone() < expiry_time
+    except (ValueError, TypeError):
+        return False
+    
 def get_exchange_rates():
     """Получает текущие курсы валют"""
     database = DatabaseManager()
@@ -48,15 +60,3 @@ def get_exchange_rates():
         rates[from_curr] = data['rate']
     rates["USD"] = 1.0
     return rates
-
-def is_rate_fresh(updated_at: str):
-    """Проверяет свежесть курса валюты"""
-    settings = SettingsLoader()
-    
-    try:
-        update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
-        ttl_seconds = settings.get("RATES_TTL_SECONDS", 300)
-        expiry_time = update_time + timedelta(seconds=ttl_seconds)
-        return datetime.now().astimezone() < expiry_time
-    except (ValueError, TypeError):
-        return False

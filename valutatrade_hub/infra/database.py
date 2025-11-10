@@ -6,20 +6,19 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 
 class DatabaseManager:
-    """
-    Singleton класс для управления JSON-хранилищем.
-    Реализован через __new__ для простоты и читабельности.
-    """
+    """Singleton класс для управления JSON-хранилищем"""
     
     _instance = None
     
     def __new__(cls):
+        """Реализация паттерна Singleton"""
         if cls._instance is None:
             cls._instance = super(DatabaseManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     
     def __init__(self):
+        """Инициализирует единственный экземпляр с настройками."""
         if not self._initialized:
             self.settings = SettingsLoader()
             self._initialized = True
@@ -57,16 +56,7 @@ class DatabaseManager:
         self._save_json_file(self.settings.get("EXCHANGE_RATES_FILE"), exchange_rates)
     
     def _load_json_file(self, file_path: str, default: Any) -> Any:
-        """
-        Загружает данные из JSON файла.
-        
-        Args:
-            file_path: Путь к файлу
-            default: Значение по умолчанию если файл не существует
-            
-        Returns:
-            Данные из файла или default
-        """
+        """Загружает данные из JSON файла"""
         if not os.path.exists(file_path):
             return default
         
@@ -77,15 +67,7 @@ class DatabaseManager:
             return default
     
     def _save_json_file(self, file_path: str, data: Any):
-        """
-        Сохраняет данные в JSON файл.
-        
-        Args:
-            file_path: Путь к файлу
-            data: Данные для сохранения
-        """
-        # Создаем директорию если не существует
+        """Сохраняет данные в JSON файл"""
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
